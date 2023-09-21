@@ -1,0 +1,10 @@
+
+.vscode
+PyYAML-5.4.1
+myenv
+
+.ipynb_checkpoints/
+
+communities/**/interaction.csv
+communities/**/readme.txt
+communities/**/ease.pkl
