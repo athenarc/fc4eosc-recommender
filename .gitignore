@@ -9,5 +9,7 @@ communities/**/interaction.csv
 communities/**/readme.txt
 communities/**/ease.pkl
 
+communities/data_processing.py
+
 # OS generated files
 **/.DS_Store
