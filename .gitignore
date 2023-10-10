@@ -8,3 +8,6 @@ myenv
 communities/**/interaction.csv
 communities/**/readme.txt
 communities/**/ease.pkl
+
+# OS generated files
+**/.DS_Store
