@@ -1,88 +1,92 @@
 
--- Create the interactions table
-CREATE TABLE interactions (
-    interaction_id SERIAL PRIMARY KEY,   -- Auto-incremented unique identifier
-    author_id VARCHAR(255) NOT NULL,     -- ORCID identifier of the author
-    result_id INTEGER NOT NULL,          -- Identifier of the cited/result item
-    community_id INTEGER NOT NULL,       -- ID of the community
-    interaction_type ENUM('authorship', 'cited') NOT NULL, -- Type of interaction
-    interaction_count INTEGER NOT NULL,  -- Number of times this interaction occurs
-    FOREIGN KEY (author_id) REFERENCES authors(orcid),
-    FOREIGN KEY (result_id) REFERENCES results(id),
-    FOREIGN KEY (community_id) REFERENCES communities(id)
+CREATE SCHEMA IF NOT EXISTS "author-recs";
+
+-- Create the ENUM type
+CREATE TYPE "author-recs".interaction_enum AS ENUM ('authorship', 'cited');
+
+-- Create the interactions table in the author-recs schema
+CREATE TABLE "author-recs".interactions (
+    id SERIAL PRIMARY KEY,                  -- Auto-incremented unique identifier
+    author_id VARCHAR(20) NOT NULL,         -- ORCID identifier of the author
+    result_id VARCHAR(200) NOT NULL,        -- Identifier of the cited/result item
+    community_name VARCHAR(100) NOT NULL,   -- Name of the community
+    interaction_type "author-recs".interaction_enum NOT NULL,  -- Use the ENUM type here
+    FOREIGN KEY (result_id) REFERENCES public.result(id)
 );
 
 -- Populate the interactions table for each distinct community
 DO $$ 
 DECLARE 
-    community integer;
+    community_name VARCHAR(100);
 BEGIN
-    FOR community IN (SELECT DISTINCT id FROM communities)
+    FOR community_name IN (SELECT DISTINCT name FROM public.community)
     LOOP
         -- Insert authorship interactions
         WITH author_written AS (
-            SELECT a.orcid, r.id, c.id as community_id, 'authorship' as interaction_type, COUNT(*) as interaction_count
-            FROM authors a
-            JOIN result_author ra ON a.id = ra.author_id
-            JOIN result r ON ra.result_id = r.id
-            JOIN result_community rc ON r.id = rc.result_id
-            JOIN community c ON rc.community_id = c.id
-            WHERE a.orcid IS NOT NULL AND a.orcid != '' AND c.id = community
-            GROUP BY a.orcid, r.id, c.id
+            SELECT a.orcid, r.id, c.name as community_name, 'authorship'::"author-recs".interaction_enum as interaction_type
+            FROM public.author a
+            JOIN public.result_author ra ON a.id = ra.author_id
+            JOIN public.result r ON ra.result_id = r.id
+            JOIN public.result_community rc ON r.id = rc.result_id
+            JOIN public.community c ON rc.community_id = c.id
+            WHERE a.orcid IS NOT NULL AND a.orcid != '' AND c.name = community_name
         )
-        INSERT INTO interactions (author_id, result_id, community_id, interaction_type, interaction_count)
-        SELECT author_id, result_id, community_id, interaction_type, interaction_count FROM author_written;
+        INSERT INTO "author-recs".interactions (author_id, result_id, community_name, interaction_type)
+        SELECT aw.orcid, aw.id, aw.community_name, aw.interaction_type
+        FROM author_written aw;
 
         -- Insert cited interactions
         WITH author_cited AS (
-            SELECT a.orcid, rcit.result_id_cited, c.id as community_id, 'cited' as interaction_type, COUNT(*) as interaction_count
-            FROM authors a
-            JOIN result_author ra ON a.id = ra.author_id
-            JOIN result_citations rcit ON ra.result_id = rcit.result_id_cites
-            JOIN result r ON rcit.result_id_cited = r.id
-            JOIN result_community rc ON r.id = rc.result_id
-            JOIN community c ON rc.community_id = c.id
-            WHERE a.orcid IS NOT NULL AND a.orcid != '' AND c.id = community
-            GROUP BY a.orcid, rcit.result_id_cited, c.id
+            SELECT a.orcid, rcit.result_id_cited, c.name as community_name, 'cited'::"author-recs".interaction_enum as interaction_type
+            FROM public.author a
+            JOIN public.result_author ra ON a.id = ra.author_id
+            JOIN public.result_citations rcit ON ra.result_id = rcit.result_id_cites
+            JOIN public.result r ON rcit.result_id_cited = r.id
+            JOIN public.result_community rc ON r.id = rc.result_id
+            JOIN public.community c ON rc.community_id = c.id
+            WHERE a.orcid IS NOT NULL AND a.orcid != '' AND c.name = community_name
         )
-        INSERT INTO interactions (author_id, result_id, community_id, interaction_type, interaction_count)
-        SELECT author_id, result_id, community_id, interaction_type, interaction_count FROM author_cited;
+        INSERT INTO "author-recs".interactions (author_id, result_id, community_name, interaction_type)
+        SELECT ac.orcid, ac.result_id_cited, ac.community_name, ac.interaction_type
+        FROM author_cited ac;
     END LOOP;
 END $$;
 
--- Create an index on community id for faster queries
-CREATE INDEX idx_interactions_community_id ON interactions(community_id);
+CREATE INDEX idx_interactions_community_name ON "author-recs".interactions (community_name);
 
--- Create materialized views for counts
-CREATE MATERIALIZED VIEW author_interactions_count AS
-SELECT author_id, COUNT(*) AS interaction_count
-FROM interactions
-GROUP BY author_id;
+-- -- Create a materialized view
+-- CREATE MATERIALIZED VIEW interactions_mview AS
+-- SELECT 
+--     author_id, 
+--     result_id,
+--     community_name,
+--     interaction_type, 
+--     COUNT(*) as interaction_count
+-- FROM interactions
+-- GROUP BY author_id, result_id, community_name, interaction_type;
 
-CREATE MATERIALIZED VIEW result_interactions_count AS
-SELECT result_id, COUNT(*) AS interaction_count
-FROM interactions
-GROUP BY result_id;
+-- CREATE INDEX idx_interactions_mview_community ON interactions_mview (community_name);
 
--- Create mapping tables
-CREATE TABLE users_mappings (
-    inner_id SERIAL PRIMARY KEY,  -- ID used internally by the recommender system
-    raw_id VARCHAR(255),          -- ORCID identifier of the author
-    community_id INTEGER,         -- Community ID
-    UNIQUE(raw_id, community_id),
-    FOREIGN KEY (raw_id) REFERENCES authors(orcid),
-    FOREIGN KEY (community_id) REFERENCES communities(id)
-);
+-- -- Create user to community mapping table
+-- CREATE TABLE users_mappings (
+--     inner_id INTEGER PRIMARY KEY,               -- Internal ID for the recommender system
+--     author_id VARCHAR(20) NOT NULL,             -- ORCID identifier of the author
+--     community_name VARCHAR(100) NOT NULL,       -- Name of the community
+--     UNIQUE(author_id, community_name),          -- Unique constraint for author within a community
+--     FOREIGN KEY (author_id) REFERENCES author(orcid),
+--     FOREIGN KEY (community_name) REFERENCES community(name)
+-- );
 
-CREATE TABLE items_mappings (
-    inner_id SERIAL PRIMARY KEY,  -- ID used internally by the recommender system
-    raw_id INTEGER,               -- Result id
-    community_id INTEGER,         -- Community ID
-    UNIQUE(raw_id, community_id),
-    FOREIGN KEY (raw_id) REFERENCES results(id),
-    FOREIGN KEY (community_id) REFERENCES communities(id)
-);
+-- -- Create item to community mapping table with optional DOI
+-- CREATE TABLE items_mappings (
+--     inner_id INTEGER PRIMARY KEY,               -- Internal ID for the recommender system
+--     result_id VARCHAR(200) NOT NULL,            -- Result identifier
+--     doi VARCHAR(200),                           -- DOI (if available)
+--     community_name VARCHAR(100) NOT NULL,       -- Name of the community
+--     UNIQUE(result_id, community_name),          -- Unique constraint for item within a community
+--     FOREIGN KEY (result_id) REFERENCES result(id),
+--     FOREIGN KEY (community_name) REFERENCES community(name)
+-- );
 
--- Create an index on community id and raw id for faster queries
-CREATE INDEX idx_users_mappings_community_raw ON users_mappings (community_id, raw_id);
-CREATE INDEX idx_items_mappings_community_raw ON items_mappings (community_id, raw_id);
+-- CREATE INDEX idx_users_mappings_author_community ON users_mappings (author_id, community_name);
+-- CREATE INDEX idx_innerid_community ON items_mappings (inner_id, community_name);

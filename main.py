@@ -137,8 +137,3 @@ async def get_neighbors(community: AvailableCommunities, item_id: str, num_neigh
     neighbor_item_ids = items_mapping.loc[neighbor_indices, "item_id"].values.tolist()
 
     return {"neighbors": neighbor_item_ids}
-
-# Run the app: uvicorn main:app --reload
-# Replace https://test.darelab.athenarc.gr/ with http://127.0.0.1:8000/ to run locally
-# http://127.0.0.1:8000/crps-rec/redoc
-# http://127.0.0.1:8000/crps-rec/docs
