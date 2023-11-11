@@ -77,11 +77,10 @@ CREATE TABLE recsys_schema.users_mappings (
 
 CREATE INDEX idx_users_mappings_author_community ON recsys_schema.users_mappings (author_id, community_name);
 
--- Create item to community mapping table with optional DOI
+-- Create item to community mapping table
 CREATE TABLE recsys_schema.items_mappings (
     inner_id INTEGER PRIMARY KEY,               -- Internal ID for the recommender system
     result_id VARCHAR(200) NOT NULL,            -- Result identifier
-    doi VARCHAR(200),                           -- DOI (if available)
     community_name VARCHAR(100) NOT NULL,       -- Name of the community
     UNIQUE(result_id, community_name),          -- Unique constraint for item within a community
     FOREIGN KEY (result_id) REFERENCES result(id)
