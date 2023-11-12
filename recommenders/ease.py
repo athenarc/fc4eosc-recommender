@@ -1,10 +1,11 @@
 
+import warnings
 import numpy as np
 import bottleneck as bn
 
 from scipy.sparse import csr_matrix
 
-from recpack.algorithms.base import ItemSimilarityMatrixAlgorithm
+from recpack.algorithms.base import ItemSimilarityMatrixAlgorithm, Algorithm
 
 class myEASE(ItemSimilarityMatrixAlgorithm):
     """
@@ -50,6 +51,25 @@ class myEASE(ItemSimilarityMatrixAlgorithm):
         scores = csr_matrix(scores) if not isinstance(scores, csr_matrix) else scores
 
         return scores
+    
+    def _check_fit_complete(self):
+        """
+        Override the ` _check_fit_complete` method so as to work for user-user similarities.
+        """
+        # Use class to check is fitted
+        Algorithm._check_fit_complete(self)
+
+        # Additional checks on the fitted matrix
+        # Check if actually exists!
+        assert hasattr(self, "similarity_matrix_")
+
+        # Check column wise, since that will determine the recommendation options
+        # TODO: Inform recpack authors; they do row wise check
+        items_with_score = set(self.similarity_matrix_.nonzero()[1])
+
+        missing = self.similarity_matrix_.shape[0] - len(items_with_score)
+        if missing > 0:
+            warnings.warn(f"{self.name} misses similarities for {missing} {self.method}s.")
     
     def get_recommendations(self, feedback, n=10):
         """
