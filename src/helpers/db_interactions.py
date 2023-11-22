@@ -1,4 +1,5 @@
 
+import logging
 import psycopg2
 import pandas as pd
 
@@ -75,9 +76,9 @@ def write_items_mappings(db_name, db_host, db_user, db_pass, db_port, data):
     except Exception as e:
         print("Error: ", e)
 
-def get_user_mapping(db_name, db_host, db_user, db_pass, db_port, community_name, author_id):
+def get_inner_user_id(db_name, db_host, db_user, db_pass, db_port, community_name, author_id):
     """
-    Fetches the internal user ID for a given community and author_id from the database.
+    Fetches the inner user ID for a given community and author_id from the database.
     """
     sql_query = """
     SELECT inner_id FROM recsys_schema.users_mappings
@@ -93,6 +94,7 @@ def get_user_mapping(db_name, db_host, db_user, db_pass, db_port, community_name
             port=db_port
         ) as conn:
             with conn.cursor() as cur:
+                logging.info(f"Executing query with author_id: {author_id}, community_name: {community_name}")
                 cur.execute(sql_query, (author_id, community_name))
                 result = cur.fetchone()
                 if result:
@@ -104,13 +106,13 @@ def get_user_mapping(db_name, db_host, db_user, db_pass, db_port, community_name
         print("Error in get_user_mapping: ", e)
         return None
     
-def get_item_mapping(db_name, db_host, db_user, db_pass, db_port, community_name, internal_item_ids):
+def get_inner_item_id(db_name, db_host, db_user, db_pass, db_port, community_name, real_item_ids):
     """
-    Fetches the real item IDs for a given community based on internal item indices from the database.
+    Fetches the inner item IDs for a given community based on real item IDs from the database.
     """
     sql_query = """
-    SELECT result_id FROM recsys_schema.items_mappings
-    WHERE inner_id = ANY(%s) AND community_name = %s;
+    SELECT inner_id FROM recsys_schema.items_mappings
+    WHERE result_id = ANY(%s) AND community_name = %s;
     """
 
     try:
@@ -122,7 +124,36 @@ def get_item_mapping(db_name, db_host, db_user, db_pass, db_port, community_name
             port=db_port
         ) as conn:
             with conn.cursor() as cur:
-                cur.execute(sql_query, (internal_item_ids, community_name))
+                logging.info(f"Executing query with real_item_ids: {real_item_ids}, community_name: {community_name}")
+                cur.execute(sql_query, (real_item_ids, community_name))
+                result = cur.fetchall()
+                return [item[0] for item in result]
+
+    except Exception as e:
+        print("Error in get_internal_item_id: ", e)
+        return None
+
+def get_real_item_id(db_name, db_host, db_user, db_pass, db_port, community_name, inner_item_ids):
+    """
+    Fetches the real item IDs for a given community based on internal item IDs from the database.
+    """
+    sql_query = """
+    SELECT result_id FROM recsys_schema.items_mappings
+    WHERE inner_id = ANY(%s) AND community_name = %s;
+    """
+
+    try:
+        inner_item_ids = [int(i) for i in inner_item_ids]
+        with psycopg2.connect(
+            dbname=db_name, 
+            host=db_host, 
+            user=db_user, 
+            password=db_pass, 
+            port=db_port
+        ) as conn:
+            with conn.cursor() as cur:
+                logging.info(f"Executing query with inner_item_ids: {inner_item_ids}, community_name: {community_name}")
+                cur.execute(sql_query, (inner_item_ids, community_name))
                 result = cur.fetchall()
                 return [item[0] for item in result]
 
