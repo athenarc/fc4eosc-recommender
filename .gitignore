@@ -1,17 +1,17 @@
 
 .vscode
+.env
 PyYAML-5.4.1
 myenv
 
 .ipynb_checkpoints/
 
-communities/**/interaction.csv
-communities/**/readme.txt
+communities/**/im_properties.yaml
+communities/**/im.csv
 communities/**/ease.pkl
 
-communities/data_processing.py
-
-help.txt
+zbmath.sql
+instructions.md
 
 # OS generated files
 **/.DS_Store
