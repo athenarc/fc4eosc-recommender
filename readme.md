@@ -2,7 +2,7 @@
 # Personalized Recommendations for Authors in Research Communities
 
 ## Overview
-This project, developed by the DARElab team at ATHENA Research Center for the FAIRCORE4EOSC European project, focuses on building recommendation engines tailored for authors across various research communities. 
+This project, developed by the DARElab team at ATHENA Research Center for the [FAIRCORE4EOSC European project](https://faircore4eosc.eu), focuses on building recommendation engines tailored for authors across various research communities. 
 Our goal is to assist researchers in discovering the papers they need. To achieve this, we are looking at the connections in the RDGraph. We focus on two important kinds of connections: the ones that show who wrote which papers (authorship edges) and the ones that show which papers cite others (cited edges). 
 By using these links, we want to make it simpler for researchers to find important and relevant papers in their field. Our project is all about making research easier to navigate and more connected for those who are contributing to it.
 
