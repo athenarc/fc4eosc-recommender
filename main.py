@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Union, List
 
 import numpy as np
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from fastapi import FastAPI, Path, Query, HTTPException
 from pydantic import BaseModel
 from scipy.sparse import load_npz
@@ -17,7 +17,7 @@ from src.api.api_responses import RECOMMENDATION_RESPONSES, NEIGHBOR_RESPONSES
 
 logging.basicConfig(level=logging.INFO)
 
-load_dotenv()  # Load the .env file
+# load_dotenv()  # Load the .env file
 
 # Fetch environment variables based on .env file structure
 db_host = os.getenv('HOST')
@@ -103,11 +103,11 @@ async def get_recommendations(
     num_recs: int = Query(default=10, title="Number of Recommendations")
 ):
     """
-    Generates recommendations for a user within a specific community.
+    Generates recommendations for an author within a specific community.
 
     Parameters:
     - community: The enumeration value representing the name of the community.
-    - user_id: The real user ID as stored in the database (ORCID or zbMATH author ID for zbMATH community).
+    - user_id: The real author ID as stored in the database (ORCID or zbMATH author ID for zbMATH community).
     - num_recs: Number of recommendations to generate. Defaults to 10.
 
     Returns:

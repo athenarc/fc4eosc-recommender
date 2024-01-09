@@ -7,7 +7,7 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 COPY communities ./communities
-COPY recommenders ./recommenders
+COPY src ./src
 
 COPY main.py ./
 

@@ -11,6 +11,8 @@ services:
       # - 80:80
     networks:
       - traefik
+    env_file:
+      - /Users/stavroula/Documents/PhD/Implementations/fc4eosc-recommender/.env
     labels:
       - traefik.enable=true
       - traefik.http.routers.crps-rec.rule= Host(`test.darelab.athenarc.gr`) && PathPrefix(`/crps-rec`)
