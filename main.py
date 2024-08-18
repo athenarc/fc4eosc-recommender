@@ -1,29 +1,13 @@
-
-import functools
-import logging
 import os
-import pickle
+import logging
+from typing import List, Dict
+from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Union, List
 
-import numpy as np
-# from dotenv import load_dotenv
-from fastapi import FastAPI, Path, Query, HTTPException
-from pydantic import BaseModel
-from scipy.sparse import load_npz
-
-from src.helpers.db_interactions import *
-from src.api.api_responses import RECOMMENDATION_RESPONSES, NEIGHBOR_RESPONSES
-
-logging.basicConfig(level=logging.INFO)
-
-# load_dotenv()  # Load the .env file
-
-# Fetch environment variables based on .env file structure
-db_host = os.getenv('HOST')
-db_user = os.getenv('DB_USER')
-db_pass = os.getenv('PASSWORD')
-db_port = os.getenv('PORT')
+from database.utils_database_connector.core import Database
+from database.rec_data import get_recommendations_by_author
 
 app = FastAPI(
     openapi_url= "/crps-rec/openapi.json",
@@ -31,169 +15,111 @@ app = FastAPI(
     redoc_url= "/crps-rec/redoc",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Define available communities as an enum
 class AvailableCommunities(str, Enum):
-    zbmath = "zbMATH"
-    transport = "Transport Research"
-    humanities = "Digital Humanities and Cultural Heritage"
-    energy = "Energy Research"
+    beopen = "beopen"
+    dariah = "dariah"
+    dh_ch = "dh-ch"
+    enermaps = "enermaps"
+    eosc = "eosc"
 
 class RecommendationResponse(BaseModel):
-    recommendations: List[Union[int, str]]
-
-class NeighborResponse(BaseModel):
-    neighbors: List[Union[int, str]]
-
-@functools.lru_cache
-def load_model(community: AvailableCommunities):
-    """
-    Loads the recommendation model for a specific community.
-
-    Parameters:
-    - community (AvailableCommunities): The enumeration value representing the name of the community.
-
-    Returns:
-    - tuple: Model, CSR matrix.
-    """
-    # Define paths based on community name
-    model_path = f"communities/{community.replace(' ', '-').lower()}/ease.pkl"
-    im_path = f"communities/{community.replace(' ', '-').lower()}/im_csr.npz"
-
-    # Check if files exist
-    if not all(os.path.exists(path) for path in [model_path, im_path]):
-        raise FileNotFoundError("One or more required files do not exist.")
-
-    try:
-        # Load model and data
-        model = pickle.load(open(model_path, "rb"))
-        im = load_npz(im_path)
-    except Exception as e:
-        raise IOError(f"An error occurred while reading the files: {e}")
-
-    return model, im
-
-@app.get(
-    "/crps-rec/recommendations/{community}/{user_id}",
-    response_model=RecommendationResponse,
-    responses=RECOMMENDATION_RESPONSES
-)
-@app.get("/crps-rec/recommendations/{community}/{user_id}", response_model=RecommendationResponse)
-async def get_recommendations(
-    community: AvailableCommunities,
-    user_id: str = Path(
+    recommendations: Dict[str, List[Dict[str, str]]] = Field(
         ...,
-        examples={
-            "zbmath": {
-                "summary": "zbMATH",
-                "value": "eleftherakis.george-k",
-            },
-            "transport-research": {
-                "summary": "Transport Research",
-                "value": "0000-0002-9632-5947",
-            },
-            "digital-humanities-and-cultural-heritage": {
-                "summary": "Digital Humanities and Cultural Heritage",
-                "value": "0000-0002-7033-7798",
-            },
-            "energy-research": {
-                "summary": "Energy Research",
-                "value": "0000-0002-3704-4379",
-            }
+        example={
+            "beopen": [
+                {
+                    "result_id": "doi_dedup___::9816848a0b623505f722f58c7b94fb9b",
+                    "result_title": "A simultaneous approach for optimal allocation of renewable energy sources and electric vehicle charging stations in smart grids based on improved GA-PSO algorithm",
+                    "result_type": "publication",
+                    "result_publication_date": "2017-07-01",
+                    "result_publisher": "Elsevier BV"
+                },
+                {
+                    "result_id": "doi_dedup___::2f978b9e0087e219d11fae7275cbef59",
+                    "result_title": "Modeling and forecasting building energy consumption: A review of data-driven techniques",
+                    "result_type": "publication",
+                    "result_publication_date": "2019-07-01",
+                    "result_publisher": "Elsevier BV"
+                }
+            ],
+            "enermaps": [
+                {
+                    "result_id": "doi_dedup___::b6e8f431d0b45a7492b9f74c0f52e129",
+                    "result_title": "Designing microgrid energy markets",
+                    "result_type": "publication",
+                    "result_publication_date": "2018-01-01",
+                    "result_publisher": "Elsevier BV"
+                },
+                {
+                    "result_id": "doi_dedup___::09c04c282d79fa77f66c1f2966f0700d",
+                    "result_title": "Peer-to-peer and community-based markets: A comprehensive review",
+                    "result_type": "publication",
+                    "result_publication_date": "2019-04-01",
+                    "result_publisher": "Elsevier BV"
+                }
+            ]
         }
-    ),
-    num_recs: int = Query(default=10, title="Number of Recommendations")
-):
-    """
-    Generates recommendations for an author within a specific community.
+    )
 
-    Parameters:
-    - community: The enumeration value representing the name of the community.
-    - user_id: The real author ID as stored in the database (ORCID or zbMATH author ID for zbMATH community).
-    - num_recs: Number of recommendations to generate. Defaults to 10.
+class RecommendRequest(BaseModel):
+    author_id: str = Field(
+        ...,
+        example="0000-0002-6123-1086"
+    )
 
-    Returns:
-    - A dictionary containing the recommended item IDs.
+@app.get("/api/faircore/user-to-item-recommender/available-communities", response_model=List[str], summary="Get Available Communities", description="Endpoint to get the list of available communities.")
+async def available_communities():
     """
+    Endpoint to get the list of available communities.
+    """
+    return [community.value for community in AvailableCommunities]
+
+@app.post("/api/faircore/user-to-item-recommender/recommend",
+          response_model=RecommendationResponse,
+          summary="Get Recommendations",
+          description="Get recommendations per community for a specific author based on their ORCID. Recommendations' number is fixed to 20.")
+async def recommend(request: RecommendRequest = Body(...)):
+    db = Database("fc4eosc")
     try:
-        db_name = "zbmath" if community == "zbMATH" else "fc4eosc"
-        model, im = load_model(community)
-        inner_user_id = get_inner_user_id(db_name, db_host, db_user, db_pass, db_port, community, user_id)
+        df = get_recommendations_by_author(db, request.author_id)
+        if df is None or df.empty:
+            raise HTTPException(status_code=404, detail="No recommendations found for the given ORCID.")
 
-        logging.info(f"Internal user ID for {user_id} in {community}: {inner_user_id}")
+        # Convert the result_publication_date to string
+        df['result_publication_date'] = df['result_publication_date'].astype(str)
 
-        if inner_user_id is None:
-            raise HTTPException(status_code=404, detail=f"No user found with user_id: {user_id}")
+        # Group by community and convert to list of records
+        grouped = df.groupby('community_acronym', group_keys=False).apply(
+            lambda x: x.to_dict(orient='records'),
+            include_groups=False
+        ).to_dict()
 
-        user_interactions = im[int(inner_user_id), :].toarray()[0]
-        recommended_item_ids = model.get_recommendations(user_interactions, n=num_recs)
+        # Convert to desired format
+        result_json = {community: records for community, records in grouped.items()}
 
-        recommended_item_ids = get_real_item_id(db_name, db_host, db_user, db_pass, db_port, community, recommended_item_ids)
+        return RecommendationResponse(recommendations=result_json)
 
-        return {"recommendations": recommended_item_ids}
-
+    except HTTPException as e:
+        logging.error(f"HTTP error occurred: {e.detail}")
+        raise
     except Exception as e:
-        logging.error(f"Error in get_recommendations: {e}")
+        logging.error(f"Error fetching recommendations: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get(
-    "/crps-rec/neighbors/{community}/{item_id}",
-    response_model=NeighborResponse,
-    responses=NEIGHBOR_RESPONSES
-)
-@app.get("/crps-rec/neighbors/{community}/{item_id}")
-async def get_neighbors(
-    community: AvailableCommunities,
-    item_id: str = Path(
-        ..., 
-        examples={
-            "zbmath": {
-                "summary": "zbMATH",
-                "value": "6317847",
-            },
-            "transport-research": {
-                "summary": "Transport Research",
-                "value": "50|doi_________::c15ed2c7d2ca9a24322114ba49a17bc2",
-            },
-            "digital-humanities-and-cultural-heritage": {
-                "summary": "Digital Humanities and Cultural Heritage",
-                "value": "50|doi_________::65224ede3e4a6458824babc5df48ed53",
-            },
-            "energy-research": {
-                "summary": "Energy Research",
-                "value": "50|doi_________::172b254de5141fd4689e673a5904c463",
-            }
-        }
-    ),
-    num_neighbors: int = Query(10, alias="num_neighbors", title="Number of Neighbors", description="Number of similar items to return.")
-):
-    """
-    Finds items similar to a given item within a specific community.
+if __name__ == "__main__":
+    import uvicorn
 
-    Parameters:
-    - community: The enumeration value representing the name of the community.
-    - item_id: The real item ID as stored in the database (result ID or zbMATH ID for zbMATH community).
-    - num_neighbors: Number of similar items to return. Defaults to 10.
-
-    Returns:
-    - A dictionary containing the similar item IDs.
-    """
-    try:
-        db_name = "zbmath" if community == "zbMATH" else "fc4eosc"
-        model, _ = load_model(community)
-        if community == "zbMATH": item_id = int(item_id)
-        inner_item_ids = get_inner_item_id(db_name, db_host, db_user, db_pass, db_port, community, [item_id])
-
-        logging.info(f"Internal item ID for {item_id} in {community}: {inner_item_ids[0]}")
-
-        if not inner_item_ids:
-            raise HTTPException(status_code=404, detail=f"No item found with item_id: {item_id}")
-
-        neighbor_indices = model.get_neighbors(inner_item_ids[0], n=num_neighbors)
-
-        # Convert internal neighbor IDs back to real item IDs
-        neighbor_item_ids = get_real_item_id(db_name, db_host, db_user, db_pass, db_port, community, neighbor_indices)
-
-        return {"neighbors": neighbor_item_ids}
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     
-    except Exception as e:
-        logging.error(f"Error in get_neighbors: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # # Test the API using curl
+
+    # # curl -X GET "http://0.0.0.0:8000/api/faircore/user-to-item-recommender/available-communities"
+    # # curl -X POST "http://0.0.0.0:8000/api/faircore/user-to-item-recommender/recommend" -H "Content-Type: application/json" -d '{"author_id": "0000-0002-6123-1086"}'
