@@ -4,7 +4,7 @@
 This project, developed by the DARElab team at the ATHENA Research Center, is part of the [FAIRCORE4EOSC European project](https://faircore4eosc.eu). Our goal is to enhance the discovery of research within the RDGraph by providing personalized recommendations to authors across different research communities. 
 
 ## Methodology 
-The RDGraph organizes research products into distinct communities (subgraphs), each representing a unique research field. Our approach centers on analyzing citation edges within the RDGraph to discover relationships between authors. We extract these edges to construct an author-paper interaction matrix for each research community. This matrix is then processed using a collaborative filtering recommender system, which generates personalized recommendations for authors within each community.
+The RDGraph organizes research products into distinct communities (subgraphs), each representing a unique research topic. Our approach centers on analyzing citation edges within the RDGraph to discover relationships between authors. We extract these edges to construct an author-paper interaction matrix for each research community. This matrix is then processed using a collaborative filtering recommender system, which generates personalized recommendations for authors within each community.
 
 ## Database
 
