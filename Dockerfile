@@ -14,7 +14,7 @@ COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi
 
-# Copy the rest of your application code into the container
+# Copy the rest of the application code into the container
 COPY database ./database
 COPY main.py ./
 
