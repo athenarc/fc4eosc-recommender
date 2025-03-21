@@ -1,0 +1,22 @@
+FASTAPI:
+  WORKERS: 1
+  DEBUG: True
+  RELOAD: True
+  HOST: '0.0.0.0'
+  PORT: 4557
+  BASE_URL: ""
+
+RECOMMENDER_DATABASE_GOLD:
+  HOST: "darelab.athenarc.gr"
+  PORT: 27017
+  USERNAME: "dev"
+  PASSWORD: "dev"
+  DB_NAME: "similarity_recs"
+
+RECOMMENDER_DATABASE_SILVER:
+  DB_NAME: "fc4eosc"
+  HOST: "train.darelab.athenarc.gr"
+  PORT: "5555"
+  SCHEMA_NAME: "item_embeddings"
+  TABLE_NAME: "items"
+  EMBEDDING_DIM: 384
