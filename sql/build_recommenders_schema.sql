@@ -1,79 +1,6 @@
 -- Create schema for recommenders
 create schema if not exists recsys_schema;
 
--- Category based recommender initialization
-
--- 1) create a table with the top 100 publication ids per level 2 tag
-create table recsys_schema.top100_per_level_2_fos_ids as
-WITH
-citations_count AS (
-    SELECT
-        rf.fos_id as level_2_id,
-        fos.label as level_2_label,
-        rf.sk_result_id AS sk_result_id,
-        COUNT(rf.sk_result_id) AS citations
-    FROM public.result_fos rf
-    JOIN public.fos on rf.fos_id = fos.id
-    JOIN public.result_citations rc ON rf.sk_result_id = rc.sk_result_id_cited
-    JOIN public.result_community rcom ON rcom.sk_result_id = rf.sk_result_id
-    WHERE
-        rf.fos_id / 100 >= 1 AND rf.fos_id / 100 < 10 -- level 2 fos
-    GROUP BY
-        rf.fos_id, fos.label, rf.sk_result_id
-),
-ranked_citations AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (PARTITION BY level_2_id ORDER BY citations DESC) AS rank
-    FROM citations_count
-),
-top_publications AS (
-SELECT
-    *
-FROM
-    ranked_citations
-WHERE
-    rank <= 100
-ORDER BY
-    level_2_id, rank)
-SELECT
-       top.sk_result_id,
-       top.level_2_id,
-       top.level_2_label,
-       top.citations
-from top_publications as top;
-
-
--- 2) create a table with the full information about top publications
-create table recsys_schema.top100_per_level_2_fos as
-WITH
-authors as (
-    select top.sk_result_id, string_agg(fullname, ',') as authors
-    from recsys_schema.top100_per_level_2_fos_ids top
-    join public.result_author ra on ra.sk_result_id = top.sk_result_id
-    join public.author a on ra.sk_author_id = a.sk_id
-    group by top.sk_result_id
-)
-SELECT
-       r.*,
-       a.authors,
-       c.id as community_id,
-       c.acronym as community_acronym,
-       fos.id as level_1_id,
-       fos.label as level_1_label,
-       top.level_2_id,
-       top.level_2_label,
-       top.citations
-from recsys_schema.top100_per_level_2_fos_ids as top
-join public.result_community rc on rc.sk_result_id = top.sk_result_id
-join public.community c on rc.community_id = c.id
-join authors a on a.sk_result_id = top.sk_result_id
-join public.result_fos rfos on rfos.sk_result_id = top.sk_result_id
-join public.fos on fos.id = rfos.fos_id
-join public.result r on top.sk_result_id = r.sk_id
-where
- rfos.fos_id < 10;
-
 
 -- Author based recommender initialization
 
@@ -288,3 +215,77 @@ BEGIN
         LIMIT 20;
     END LOOP;
 END $$;
+
+
+-- Category based recommender initialization
+
+-- 1) create a table with the top 100 publication ids per level 2 tag
+create table recsys_schema.top100_per_level_2_fos_ids as
+WITH
+citations_count AS (
+    SELECT
+        rf.fos_id as level_2_id,
+        fos.label as level_2_label,
+        rf.sk_result_id AS sk_result_id,
+        COUNT(rf.sk_result_id) AS citations
+    FROM public.result_fos rf
+    JOIN public.fos on rf.fos_id = fos.id
+    JOIN public.result_citations rc ON rf.sk_result_id = rc.sk_result_id_cited
+    JOIN public.result_community rcom ON rcom.sk_result_id = rf.sk_result_id
+    WHERE
+        rf.fos_id / 100 >= 1 AND rf.fos_id / 100 < 10 -- level 2 fos
+    GROUP BY
+        rf.fos_id, fos.label, rf.sk_result_id
+),
+ranked_citations AS (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (PARTITION BY level_2_id ORDER BY citations DESC) AS rank
+    FROM citations_count
+),
+top_publications AS (
+SELECT
+    *
+FROM
+    ranked_citations
+WHERE
+    rank <= 100
+ORDER BY
+    level_2_id, rank)
+SELECT
+       top.sk_result_id,
+       top.level_2_id,
+       top.level_2_label,
+       top.citations
+from top_publications as top;
+
+
+-- 2) create a table with the full information about top publications
+create table recsys_schema.top100_per_level_2_fos as
+WITH
+authors as (
+    select top.sk_result_id, string_agg(fullname, ',') as authors
+    from recsys_schema.top100_per_level_2_fos_ids top
+    join public.result_author ra on ra.sk_result_id = top.sk_result_id
+    join public.author a on ra.sk_author_id = a.sk_id
+    group by top.sk_result_id
+)
+SELECT
+       r.*,
+       a.authors,
+       c.id as community_id,
+       c.acronym as community_acronym,
+       fos.id as level_1_id,
+       fos.label as level_1_label,
+       top.level_2_id,
+       top.level_2_label,
+       top.citations
+from recsys_schema.top100_per_level_2_fos_ids as top
+join public.result_community rc on rc.sk_result_id = top.sk_result_id
+join public.community c on rc.community_id = c.id
+join authors a on a.sk_result_id = top.sk_result_id
+join public.result_fos rfos on rfos.sk_result_id = top.sk_result_id
+join public.fos on fos.id = rfos.fos_id
+join public.result r on top.sk_result_id = r.sk_id
+where
+ rfos.fos_id < 10;
