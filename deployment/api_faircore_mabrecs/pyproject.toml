@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "api_faircore_mabrecs"
+version = "0.1.0"
+description = ""
+authors = []
+license = ""
+packages = [
+    {include = "darelabdb/recs_mab",from = "../../components"},
+    {include = "darelabdb/api_faircore_mabrecs",from = "../../bases"},
+    {include = "darelabdb/utils_database_connector",from = "../../components"},
+    {include = "darelabdb/utils_configs",from = "../../components"},
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9, <3.13"
+uvicorn = {extras = ["standard"], version = "^0.30.1"}
+fastapi = "^0.111.0"
+numpy = "^1.26.4"
+pydantic = "^2.7.3"
+redis = "^5.0.5"
+sentry-sdk = "^2.5.0"
+pandas = "^2.2.2"
+pydantic-settings = "^2.3.1"
+sqlalchemy = "^2.0.30"
+sqlglot = "^25.0.2"
+psycopg2 = "^2.9.9"
+loguru = "^0.7.2"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

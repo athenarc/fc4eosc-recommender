@@ -28,7 +28,6 @@ chmod +x initialization.sh;
 ./initialization.sh <host> <port> <user> <password> <database>
 ```
 
-
 ## Recommenders
 
 There are 3 different recommenders available:
@@ -37,11 +36,10 @@ There are 3 different recommenders available:
 
 The content based recommender, given a research product (eg. publications) will recommend similar research products based on their textual and metadata attributes.
 
-[More info](docs/similarity_based_recommender.md), [API Docs ](https://darelab.athenarc.gr/api/faircore/item-to-item-recommender/docs)
+[More info](docs/similarity_based_recommender.md), [API Docs](https://darelab.athenarc.gr/api/faircore/item-to-item-recommender/docs)
 
 **Category Based Recommender**
-@Antonis
+[More info](docs/category_based_recommender.md), [API Docs](https://darelab.athenarc.gr/api/faircore/category-based-recommender/docs)
 
 **Author Based Recommender**
 @Stavroula
-

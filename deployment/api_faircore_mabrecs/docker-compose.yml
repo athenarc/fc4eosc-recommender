@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  web:
+    image: darelab-pull.docker.imsi.athenarc.gr/antonismand/api_faircore_mabrecs:latest
+    container_name: faircore_mabrecs
+    restart: unless-stopped
+    networks:
+      - mabrecs_redis_network
+      - traefik
+    depends_on:
+      - "redis-mabrecs"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mabrecs.rule= Host(`darelab.athenarc.gr`) && (PathPrefix(`/api/faircore/category-based-recommender`) || PathPrefix(`/api/datadazzle/category-based-recommender/`))
+      - traefik.http.routers.mabrecs.middlewares=redirect_to_https@file
+    env_file:
+      - /data/ci/antonismand/faircore_mabrecs.env
+
+  redis-mabrecs:
+    image: "redis/redis-stack:latest"
+    restart: unless-stopped
+    container_name: redis-mabrecs
+    networks:
+      - mabrecs_redis_network
+    volumes:
+      - /data/redis_mabs:/data
+
+networks:
+  mabrecs_redis_network:
+    name: mabrecs_redis_network
+    # external: true
+  traefik:
+    name: traefik
+    external: true
